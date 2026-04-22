@@ -4,9 +4,11 @@ const app = express();
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.send('tireconnect-backend is running');
+  res.status(200).send('OK - backend is running');
 });
-
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 app.post('/create-cart', async (req, res) => {
   try {
     const { part, qty, price, title, size } = req.body;
