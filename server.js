@@ -153,10 +153,10 @@ app.post('/create-cart', async (req, res) => {
             originalUnitPrice: String(price),
             quantity: Number(qty || 1),
             customAttributes: [
-              { key: "SKU", value: String(sku || "") },
-              { key: "Brand", value: String(brand || "") },
-              { key: "Size", value: String(size || "") },
-              { key: "Source", value: "TireConnect" }
+              { key: 'SKU', value: String(sku || '') },
+              { key: 'Brand', value: String(brand || '') },
+              { key: 'Size', value: String(size || '') },
+              { key: 'Source', value: 'TireConnect' }
             ]
           }
         ]
@@ -203,9 +203,13 @@ app.post('/create-cart', async (req, res) => {
     });
   } catch (error) {
     console.error('Server error:', error);
-    return res.status(500).json({ error: 'Internal server error', details: String(error.message || error) });
+    return res.status(500).json({
+      error: 'Internal server error',
+      details: String(error.message || error)
+    });
   }
 });
+
 app.post('/create-tire-variant', async (req, res) => {
   try {
     const { title, part, size, qty, price, brand } = req.body || {};
@@ -215,11 +219,15 @@ app.post('/create-tire-variant', async (req, res) => {
     }
 
     const cleanTitle = String(title || '').trim();
-    const cleanPart = String(part || ('TC-' + Date.now())).trim();
+    const cleanPart = String(part || `TC-${Date.now()}`).trim();
     const cleanSize = String(size || '').trim();
     const cleanBrand = String(brand || 'Road Runner Tires & Wheels').trim();
     const cleanPrice = String(price || '').replace(/[^0-9.]/g, '');
     const cleanQty = parseInt(qty, 10) || 1;
+
+    if (!cleanPrice) {
+      return res.status(400).json({ error: 'Invalid price' });
+    }
 
     const productTitle = `${cleanBrand} ${cleanTitle}`.trim();
     const productHandle = safeHandle(`tc-${cleanPart}`);
@@ -299,4 +307,9 @@ app.post('/create-tire-variant', async (req, res) => {
       details: String(error.message || error)
     });
   }
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
 });
