@@ -209,19 +209,88 @@ app.post('/create-cart', async (req, res) => {
 
 app.post('/create-tire-variant', async (req, res) => {
   try {
-    const {
-      title,
-      part,
-      size,
-      qty,
-      price,
-      brand
-    } = req.body || {};
+    const { title, part, size, qty, price, brand } = req.body || {};
 
-    if (!title || !part || !price) {
-      return res.status(400).json({
-        error: 'Missing required fields: title, part, price'
+    if (!title || !price) {
+      return res.status(400).json({ error: 'Missing title or price' });
+    }
+
+    const cleanTitle = String(title || '').trim();
+    const cleanPart = String(part || ('TC-' + Date.now())).trim();
+    const cleanSize = String(size || '').trim();
+    const cleanBrand = String(brand || 'Road Runner Tires & Wheels').trim();
+    const cleanPrice = String(price || '').replace(/[^0-9.]/g, '');
+    const cleanQty = parseInt(qty, 10) || 1;
+
+    const productTitle = `${cleanBrand} ${cleanTitle}`.trim();
+    const productHandle = safeHandle(`tc-${cleanPart}`);
+
+    // 🔍 Buscar producto existente
+    const found = await shopifyRest(`/products.json?handle=${productHandle}`);
+
+    const existingProduct = found?.products?.[0];
+
+    if (existingProduct && existingProduct.variants?.length > 0) {
+      const variant = existingProduct.variants[0];
+
+      return res.json({
+        ok: true,
+        variant_id: variant.id,
+        product_id: existingProduct.id,
+        reused: true
       });
+    }
+
+    // 🆕 Crear producto
+    const created = await shopifyRest('/products.json', {
+      method: 'POST',
+      body: JSON.stringify({
+        product: {
+          title: productTitle,
+          handle: productHandle,
+          vendor: 'Road Runner Tires & Wheels',
+          product_type: 'Tires',
+          status: 'active',
+          tags: 'tireconnect,dynamic-tire',
+          variants: [
+            {
+              option1: 'Default Title',
+              price: cleanPrice,
+              sku: cleanPart,
+              inventory_policy: 'continue',
+              requires_shipping: false,
+              taxable: true
+            }
+          ]
+        }
+      })
+    });
+
+    const product = created?.product;
+    const variant = product?.variants?.[0];
+
+    if (!variant?.id) {
+      return res.status(500).json({
+        error: 'Variant not created',
+        details: created
+      });
+    }
+
+    return res.json({
+      ok: true,
+      variant_id: variant.id,
+      product_id: product.id,
+      reused: false
+    });
+
+  } catch (error) {
+    console.error('create-tire-variant error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      details: String(error.message || error)
+    });
+  }
+});
     }
 
     const cleanTitle = String(title || '').trim();
