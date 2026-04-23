@@ -44,34 +44,6 @@ function safeHandle(input) {
     .slice(0, 80);
 }
 
-async function shopifyGraphQL(query, variables = {}) {
-  const accessToken = await getShopifyAccessToken();
-
-  const response = await fetch(`https://${SHOP}/admin/api/${ADMIN_API_VERSION}/graphql.json`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'X-Shopify-Access-Token': accessToken
-    },
-    body: JSON.stringify({ query, variables })
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    console.error('Shopify GraphQL HTTP error:', data);
-    throw new Error('Shopify GraphQL HTTP error');
-  }
-
-  if (data.errors) {
-    console.error('Shopify GraphQL errors:', data.errors);
-    throw new Error(JSON.stringify(data.errors));
-  }
-
-  return data.data;
-}
-
 async function shopifyRest(path, options = {}) {
   const accessToken = await getShopifyAccessToken();
 
@@ -110,109 +82,9 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-app.post('/create-cart', async (req, res) => {
-  try {
-    const {
-      title,
-      price,
-      qty,
-      sku,
-      brand,
-      size
-    } = req.body;
-
-    if (!title || !price) {
-      return res.status(400).json({
-        error: 'Missing title or price'
-      });
-    }
-
-    const accessToken = await getShopifyAccessToken();
-
-    const mutation = `
-      mutation draftOrderCreate($input: DraftOrderInput!) {
-        draftOrderCreate(input: $input) {
-          draftOrder {
-            id
-            name
-            invoiceUrl
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `;
-
-    const variables = {
-      input: {
-        lineItems: [
-          {
-            title: title,
-            originalUnitPrice: String(price),
-            quantity: Number(qty || 1),
-            customAttributes: [
-              { key: 'SKU', value: String(sku || '') },
-              { key: 'Brand', value: String(brand || '') },
-              { key: 'Size', value: String(size || '') },
-              { key: 'Source', value: 'TireConnect' },
-            ]
-          }
-        ]
-      }
-    };
-
-    const response = await fetch(`https://${SHOP}/admin/api/${ADMIN_API_VERSION}/graphql.json`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-Shopify-Access-Token': accessToken
-      },
-      body: JSON.stringify({
-        query: mutation,
-        variables
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Shopify HTTP error:', data);
-      return res.status(500).json({ error: 'Shopify HTTP error', details: data });
-    }
-
-    const userErrors = data?.data?.draftOrderCreate?.userErrors || [];
-    if (userErrors.length > 0) {
-      console.error('Shopify userErrors:', userErrors);
-      return res.status(400).json({ error: 'Shopify userErrors', details: userErrors });
-    }
-
-    const draftOrder = data?.data?.draftOrderCreate?.draftOrder;
-    if (!draftOrder?.invoiceUrl) {
-      console.error('No invoiceUrl:', data);
-      return res.status(500).json({ error: 'No se recibió invoiceUrl', details: data });
-    }
-
-    return res.json({
-      ok: true,
-      draftOrderId: draftOrder.id,
-      draftOrderName: draftOrder.name,
-      checkout_url: draftOrder.invoiceUrl
-    });
-  } catch (error) {
-    console.error('Server error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      details: String(error.message || error)
-    });
-  }
-});
-
 app.post('/create-tire-variant', async (req, res) => {
   try {
-    const { title, part, size, qty, price, brand } = req.body || {};
+    const { title, part, size, qty, price, brand, image } = req.body || {};
 
     if (!title || !price) {
       return res.status(400).json({ error: 'Missing title or price' });
@@ -221,9 +93,10 @@ app.post('/create-tire-variant', async (req, res) => {
     const cleanTitle = String(title || '').trim();
     const cleanPart = String(part || `TC-${Date.now()}`).trim();
     const cleanSize = String(size || '').trim();
-    const cleanBrand = String(brand || 'Road Runner Tires & Wheels').trim();
+    const cleanBrand = String(brand || 'Tire').trim();
     const cleanPrice = String(price || '').replace(/[^0-9.]/g, '');
     const cleanQty = parseInt(qty, 10) || 1;
+    const cleanImage = String(image || '').trim();
 
     if (!cleanPrice) {
       return res.status(400).json({ error: 'Invalid price' });
@@ -238,6 +111,18 @@ app.post('/create-tire-variant', async (req, res) => {
     if (existingProduct && existingProduct.variants?.length > 0) {
       const variant = existingProduct.variants[0];
 
+      if (cleanImage && (!existingProduct.images || existingProduct.images.length === 0)) {
+        await shopifyRest(`/products/${existingProduct.id}.json`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            product: {
+              id: existingProduct.id,
+              images: [{ src: cleanImage }]
+            }
+          })
+        });
+      }
+
       return res.json({
         ok: true,
         variant_id: variant.id,
@@ -248,7 +133,9 @@ app.post('/create-tire-variant', async (req, res) => {
           part: cleanPart,
           size: cleanSize,
           qty: cleanQty,
-          price: cleanPrice
+          price: cleanPrice,
+          brand: cleanBrand,
+          image: cleanImage
         }
       });
     }
@@ -259,10 +146,11 @@ app.post('/create-tire-variant', async (req, res) => {
         product: {
           title: productTitle,
           handle: productHandle,
-          vendor: 'Road Runner Tires & Wheels',
+          vendor: cleanBrand,
           product_type: 'Tires',
           status: 'active',
           tags: 'tireconnect,dynamic-tire',
+          images: cleanImage ? [{ src: cleanImage }] : [],
           variants: [
             {
               option1: 'Default Title',
@@ -297,7 +185,9 @@ app.post('/create-tire-variant', async (req, res) => {
         part: cleanPart,
         size: cleanSize,
         qty: cleanQty,
-        price: cleanPrice
+        price: cleanPrice,
+        brand: cleanBrand,
+        image: cleanImage
       }
     });
   } catch (error) {
