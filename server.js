@@ -9,6 +9,7 @@ app.use(express.json());
 const SHOP = process.env.SHOPIFY_STORE;
 const CLIENT_ID = process.env.SHOPIFY_API_KEY;
 const CLIENT_SECRET = process.env.SHOPIFY_API_SECRET;
+const ADMIN_API_VERSION = '2025-10';
 
 async function getShopifyAccessToken() {
   const params = new URLSearchParams();
@@ -33,6 +34,72 @@ async function getShopifyAccessToken() {
   }
 
   return data.access_token;
+}
+
+function safeHandle(input) {
+  return String(input || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+async function shopifyGraphQL(query, variables = {}) {
+  const accessToken = await getShopifyAccessToken();
+
+  const response = await fetch(`https://${SHOP}/admin/api/${ADMIN_API_VERSION}/graphql.json`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-Shopify-Access-Token': accessToken
+    },
+    body: JSON.stringify({ query, variables })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error('Shopify GraphQL HTTP error:', data);
+    throw new Error('Shopify GraphQL HTTP error');
+  }
+
+  if (data.errors) {
+    console.error('Shopify GraphQL errors:', data.errors);
+    throw new Error(JSON.stringify(data.errors));
+  }
+
+  return data.data;
+}
+
+async function shopifyRest(path, options = {}) {
+  const accessToken = await getShopifyAccessToken();
+
+  const response = await fetch(`https://${SHOP}/admin/api/${ADMIN_API_VERSION}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-Shopify-Access-Token': accessToken,
+      ...(options.headers || {})
+    }
+  });
+
+  const text = await response.text();
+  let data = null;
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (e) {
+    data = { raw: text };
+  }
+
+  if (!response.ok) {
+    console.error('Shopify REST error:', response.status, data);
+    throw new Error(`Shopify REST error ${response.status}`);
+  }
+
+  return data;
 }
 
 app.get('/', (req, res) => {
@@ -96,7 +163,7 @@ app.post('/create-cart', async (req, res) => {
       }
     };
 
-    const response = await fetch(`https://${SHOP}/admin/api/2026-04/graphql.json`, {
+    const response = await fetch(`https://${SHOP}/admin/api/${ADMIN_API_VERSION}/graphql.json`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -136,44 +203,9 @@ app.post('/create-cart', async (req, res) => {
     });
   } catch (error) {
     console.error('Server error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error', details: String(error.message || error) });
   }
 });
-function safeHandle(input) {
-  return String(input || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
-}
-
-async function shopifyGraphQL(query, variables = {}) {
-  const accessToken = await getShopifyAccessToken();
-
-  const response = await fetch(`https://${SHOP}/admin/api/2026-04/graphql.json`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'X-Shopify-Access-Token': accessToken
-    },
-    body: JSON.stringify({ query, variables })
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    console.error('Shopify GraphQL HTTP error:', data);
-    throw new Error('Shopify GraphQL HTTP error');
-  }
-
-  if (data.errors) {
-    console.error('Shopify GraphQL errors:', data.errors);
-    throw new Error(JSON.stringify(data.errors));
-  }
-
-  return data.data;
-}
 
 app.post('/create-tire-variant', async (req, res) => {
   try {
@@ -192,29 +224,41 @@ app.post('/create-tire-variant', async (req, res) => {
       });
     }
 
-    const cleanTitle = String(title).trim();
-    const cleanPart = String(part).trim();
+    const cleanTitle = String(title || '').trim();
+    const cleanPart = String(part || '').trim();
     const cleanSize = String(size || '').trim();
     const cleanBrand = String(brand || 'Road Runner Tires & Wheels').trim();
-    const cleanPrice = String(price).replace(/[^0-9.]/g, '');
+    const cleanPrice = String(price || '').replace(/[^0-9.]/g, '');
     const cleanQty = parseInt(qty, 10) || 1;
+
+    if (!cleanPrice) {
+      return res.status(400).json({
+        error: 'Invalid price'
+      });
+    }
 
     const productTitle = `${cleanBrand} ${cleanTitle}`.trim();
     const productHandle = safeHandle(`tc-${cleanPart}`);
 
     const findProductQuery = `
-      query FindProductByHandle($handle: String!) {
-        productByHandle(handle: $handle) {
-          id
-          title
-          handle
-          variants(first: 10) {
-            edges {
-              node {
-                id
-                title
-                sku
-                price
+      query FindProducts($query: String!) {
+        products(first: 1, query: $query) {
+          edges {
+            node {
+              id
+              title
+              handle
+              legacyResourceId
+              variants(first: 10) {
+                edges {
+                  node {
+                    id
+                    legacyResourceId
+                    title
+                    sku
+                    price
+                  }
+                }
               }
             }
           }
@@ -222,16 +266,32 @@ app.post('/create-tire-variant', async (req, res) => {
       }
     `;
 
-    const found = await shopifyGraphQL(findProductQuery, { handle: productHandle });
-    const existingProduct = found.productByHandle;
+    const found = await shopifyGraphQL(findProductQuery, {
+      query: `handle:${productHandle}`
+    });
 
-    if (existingProduct && existingProduct.variants.edges.length > 0) {
+    const existingProduct = found?.products?.edges?.[0]?.node || null;
+
+    if (existingProduct && existingProduct.variants?.edges?.length > 0) {
       const existingVariant = existingProduct.variants.edges[0].node;
+      const numericVariantId = existingVariant.legacyResourceId;
+
+      await shopifyRest(`/variants/${numericVariantId}.json`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          variant: {
+            id: numericVariantId,
+            price: cleanPrice,
+            sku: cleanPart,
+            inventory_policy: 'continue'
+          }
+        })
+      });
 
       return res.json({
         ok: true,
-        variant_id: existingVariant.id,
-        product_id: existingProduct.id,
+        variant_id: numericVariantId,
+        product_id: existingProduct.legacyResourceId,
         reused: true,
         meta: {
           title: cleanTitle,
@@ -243,64 +303,38 @@ app.post('/create-tire-variant', async (req, res) => {
       });
     }
 
-    const createProductMutation = `
-      mutation CreateProduct($input: ProductInput!) {
-        productCreate(input: $input) {
-          product {
-            id
-            title
-            handle
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  title
-                  sku
-                }
-              }
+    const created = await shopifyRest('/products.json', {
+      method: 'POST',
+      body: JSON.stringify({
+        product: {
+          title: productTitle,
+          handle: productHandle,
+          vendor: 'Road Runner Tires & Wheels',
+          product_type: 'Tires',
+          status: 'active',
+          tags: 'tireconnect,dynamic-tire',
+          variants: [
+            {
+              option1: 'Default Title',
+              price: cleanPrice,
+              sku: cleanPart,
+              inventory_policy: 'continue',
+              requires_shipping: false,
+              taxable: true
             }
-          }
-          userErrors {
-            field
-            message
-          }
+          ]
         }
-      }
-    `;
+      })
+    });
 
-    const createInput = {
-      title: productTitle,
-      handle: productHandle,
-      vendor: 'Road Runner Tires & Wheels',
-      productType: 'Tires',
-      status: 'ACTIVE',
-      tags: ['tireconnect', 'dynamic-tire'],
-      variants: [
-        {
-          price: cleanPrice,
-          sku: cleanPart,
-          inventoryPolicy: 'CONTINUE'
-        }
-      ]
-    };
+    const product = created?.product;
+    const variant = product?.variants?.[0];
 
-    const created = await shopifyGraphQL(createProductMutation, { input: createInput });
-    const createResult = created.productCreate;
-
-    if (createResult.userErrors && createResult.userErrors.length > 0) {
-      console.error('productCreate userErrors:', createResult.userErrors);
-      return res.status(400).json({
-        error: 'productCreate failed',
-        details: createResult.userErrors
-      });
-    }
-
-    const product = createResult.product;
-    const variant = product?.variants?.edges?.[0]?.node;
-
-    if (!product || !variant) {
+    if (!product || !variant?.id) {
+      console.error('Product create bad response:', created);
       return res.status(500).json({
-        error: 'Product created but no variant returned'
+        error: 'Product created but no variant returned',
+        details: created
       });
     }
 
@@ -325,6 +359,7 @@ app.post('/create-tire-variant', async (req, res) => {
     });
   }
 });
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
