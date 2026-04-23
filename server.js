@@ -156,7 +156,7 @@ app.post('/create-cart', async (req, res) => {
               { key: 'SKU', value: String(sku || '') },
               { key: 'Brand', value: String(brand || '') },
               { key: 'Size', value: String(size || '') },
-              { key: 'Source', value: 'TireConnect' }
+              { key: 'Source', value: 'TireConnect' },
             ]
           }
         ]
