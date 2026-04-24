@@ -103,11 +103,11 @@ app.post('/create-tire-variant', async (req, res) => {
     }
 
     const productTitle = `${cleanBrand} ${cleanTitle}`.trim();
-const baseKey = cleanPart || `${cleanBrand}-${cleanTitle}`;
-const productHandle = safeHandle(`tc-${baseKey}`);
+    const baseKey = cleanPart || `${cleanBrand}-${cleanTitle}`;
+    const productHandle = safeHandle(`tc-${baseKey}`);
 
-const found = await shopifyRest(`/products.json?handle=${productHandle}`);
-const existingProduct = found?.products?.[0];
+    const found = await shopifyRest(`/products.json?handle=${productHandle}`);
+    const existingProduct = found?.products?.[0];
 
     if (existingProduct && existingProduct.variants?.length > 0) {
       const variant = existingProduct.variants[0];
