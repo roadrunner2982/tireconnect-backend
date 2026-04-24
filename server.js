@@ -103,7 +103,8 @@ app.post('/create-tire-variant', async (req, res) => {
     }
 
     const productTitle = `${cleanBrand} ${cleanTitle}`.trim();
-    const productHandle = safeHandle(`tc-${cleanPart}`);
+    const baseKey = cleanPart || `${cleanBrand}-${cleanTitle}`;
+    const productHandle = safeHandle(`tc-${baseKey}`);
 
     const found = await shopifyRest(`/products.json?handle=${productHandle}`);
     const existingProduct = found?.products?.[0];
@@ -141,29 +142,34 @@ app.post('/create-tire-variant', async (req, res) => {
     }
 
     const created = await shopifyRest('/products.json', {
-      method: 'POST',
-      body: JSON.stringify({
-        product: {
-          title: productTitle,
-          handle: productHandle,
-          vendor: cleanBrand,
-          product_type: 'Tires',
-          status: 'active',
-          tags: 'tireconnect,dynamic-tire',
-          images: cleanImage ? [{ src: cleanImage }] : [],
-          variants: [
-            {
-              option1: 'Default Title',
-              price: cleanPrice,
-              sku: cleanPart,
-              inventory_policy: 'continue',
-              requires_shipping: false,
-              taxable: true
-            }
-          ]
+  method: 'POST',
+  body: JSON.stringify({
+    product: {
+      title: productTitle,
+      handle: productHandle,
+      vendor: cleanBrand,
+      product_type: 'Tires',
+
+      status: 'draft', // 🔥 CAMBIO CLAVE
+      published: false, // 🔥 EXTRA SEGURIDAD
+
+      tags: 'tireconnect,dynamic-tire,hidden', // 🔥 añadido hidden
+
+      images: cleanImage ? [{ src: cleanImage }] : [],
+
+      variants: [
+        {
+          option1: 'Default Title',
+          price: cleanPrice,
+          sku: cleanPart,
+          inventory_policy: 'continue',
+          requires_shipping: false,
+          taxable: true
         }
-      })
-    });
+      ]
+    }
+  })
+});
 
     const product = created?.product;
     const variant = product?.variants?.[0];
