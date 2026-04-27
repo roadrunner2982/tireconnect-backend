@@ -73,7 +73,19 @@ async function shopifyRest(path, options = {}) {
 
   return data;
 }
-
+async function hideProductFromStorefront(productId) {
+  await shopifyRest(`/products/${productId}/metafields.json`, {
+    method: 'POST',
+    body: JSON.stringify({
+      metafield: {
+        namespace: 'seo',
+        key: 'hidden',
+        type: 'number_integer',
+        value: '1'
+      }
+    })
+  });
+}
 app.get('/', (req, res) => {
   res.status(200).send('OK - backend is running');
 });
@@ -168,7 +180,9 @@ app.post('/create-tire-variant', async (req, res) => {
 
     const product = created?.product;
     const variant = product?.variants?.[0];
-
+    if (product?.id) {
+   await hideProductFromStorefront(product.id);
+}
     if (!variant?.id) {
       return res.status(500).json({
         error: 'Variant not created',
