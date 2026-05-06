@@ -160,9 +160,10 @@ app.post('/create-tire-variant', async (req, res) => {
       title: productTitle,
       handle: productHandle,
       vendor: cleanBrand,
-      product_type: 'Tires',
+      product_type: 'TireConnect Dynamic',
       status: 'active',
-      tags: 'tireconnect,dynamic-tire,hidden',
+      published: false,
+      tags: 'hidden,tireconnect,dynamic-tire,tc-hidden,do-not-display',
       images: cleanImage ? [{ src: cleanImage }] : [],
       variants: [
         {
