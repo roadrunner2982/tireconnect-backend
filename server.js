@@ -228,8 +228,8 @@ app.get('/google-products.xml', async (req, res) => {
         id: 'TC-254018',
         title: 'Road Runner Tires 245/40R18 Tire',
         description: '245/40R18 tire available at Road Runner Tires & Wheels in Kissimmee, Florida.',
-        link: 'https://YOURDOMAIN.com/pages/shop-tires-new',
-        image_link: 'https://YOUR-IMAGE-URL.jpg',
+        link: 'https://roadrunnertiresfl.com/pages/shop-tires-new',
+        image_link: 'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-1_large.png',
         availability: 'in_stock',
         price: '125.00 USD',
         brand: 'Road Runner Tires',
@@ -259,7 +259,7 @@ app.get('/google-products.xml', async (req, res) => {
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
   <channel>
     <title>Road Runner Tires Product Feed</title>
-    <link>https://YOURDOMAIN.com</link>
+    <link>https://roadrunnertiresfl.com</link>
     <description>Road Runner Tires inventory feed for Google Merchant Center</description>
     ${itemsXml}
   </channel>
