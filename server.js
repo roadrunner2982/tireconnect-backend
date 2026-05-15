@@ -1,3 +1,6 @@
+Aquí está el `server.js` completo con los `&amp;` corregidos:
+
+```javascript
 const express = require('express');
 const cors = require('cors');
 
@@ -261,7 +264,7 @@ app.post('/save-tire-for-feed', async (req, res) => {
     const tireId = part || `${brand}-${size}-${Date.now()}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 
     const link = size
-      ? `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&season=all&page=1&order_by=best_match&display=full`
+      ? `https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full`
       : `https://roadrunnertiresfl.com/pages/shop-tires-new`;
 
     const record = {
@@ -301,22 +304,20 @@ app.get('/google-products.xml', async (req, res) => {
     const TIRE_IMAGE = 'https://cdn.shopify.com/s/files/1/0929/1700/6583/files/pirelli_pzero_all_season_plus_3_c202a64117f7f4bcfb8b4936bdba306f.png?v=1778705105';
     const TIRE_CATEGORY = 'Vehicles & Parts > Vehicle Parts & Accessories > Motor Vehicle Parts > Motor Vehicle Tires';
 
-    // Tallas base siempre presentes
     const baseTires = [
-      { id: 'RR-TIRE-205-55-R16', title: 'All-Season Tire 205/55R16', size: '205/55R16', vehicle: 'Toyota Corolla', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=205&height%3E=55&rim%3E=16&season=all&page=1&order_by=best_match&display=full` },
-      { id: 'RR-TIRE-215-55-R17', title: 'All-Season Tire 215/55R17', size: '215/55R17', vehicle: 'Toyota Camry', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=215&height%3E=55&rim%3E=17&season=all&page=1&order_by=best_match&display=full` },
-      { id: 'RR-TIRE-225-65-R17', title: 'All-Season Tire 225/65R17', size: '225/65R17', vehicle: 'Toyota RAV4, Honda CR-V', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=225&height%3E=65&rim%3E=17&season=all&page=1&order_by=best_match&display=full` },
-      { id: 'RR-TIRE-265-60-R18', title: 'All-Season Tire 265/60R18', size: '265/60R18', vehicle: 'Ford F-150', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=265&height%3E=60&rim%3E=18&season=all&page=1&order_by=best_match&display=full` },
-      { id: 'RR-TIRE-275-65-R18', title: 'All-Season Tire 275/65R18', size: '275/65R18', vehicle: 'Ford F-150', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=275&height%3E=65&rim%3E=18&season=all&page=1&order_by=best_match&display=full` },
-      { id: 'RR-TIRE-265-65-R18', title: 'All-Season Tire 265/65R18', size: '265/65R18', vehicle: 'Chevrolet Silverado', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=265&height%3E=65&rim%3E=18&season=all&page=1&order_by=best_match&display=full` },
-      { id: 'RR-TIRE-275-60-R20', title: 'All-Season Tire 275/60R20', size: '275/60R20', vehicle: 'RAM 1500', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=275&height%3E=60&rim%3E=20&season=all&page=1&order_by=best_match&display=full` },
-      { id: 'RR-TIRE-265-70-R16', title: 'All-Season Tire 265/70R16', size: '265/70R16', vehicle: 'Toyota Tacoma', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=265&height%3E=70&rim%3E=16&season=all&page=1&order_by=best_match&display=full` },
-      { id: 'RR-TIRE-265-65-R17', title: 'All-Season Tire 265/65R17', size: '265/65R17', vehicle: 'Toyota Tacoma, Kia Sorento', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=265&height%3E=65&rim%3E=17&season=all&page=1&order_by=best_match&display=full` },
-      { id: 'RR-TIRE-235-65-R17', title: 'All-Season Tire 235/65R17', size: '235/65R17', vehicle: 'Kia Sorento', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=235&height%3E=65&rim%3E=17&season=all&page=1&order_by=best_match&display=full` },
-      { id: 'RR-TIRE-245-60-R20', title: 'All-Season Tire 245/60R20', size: '245/60R20', vehicle: 'Toyota Highlander', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=245&height%3E=60&rim%3E=20&season=all&page=1&order_by=best_match&display=full` }
+      { id: 'RR-TIRE-205-55-R16', title: 'All-Season Tire 205/55R16', size: '205/55R16', vehicle: 'Toyota Corolla', link: 'https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;width%3E=205&amp;height%3E=55&amp;rim%3E=16&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full' },
+      { id: 'RR-TIRE-215-55-R17', title: 'All-Season Tire 215/55R17', size: '215/55R17', vehicle: 'Toyota Camry', link: 'https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;width%3E=215&amp;height%3E=55&amp;rim%3E=17&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full' },
+      { id: 'RR-TIRE-225-65-R17', title: 'All-Season Tire 225/65R17', size: '225/65R17', vehicle: 'Toyota RAV4, Honda CR-V', link: 'https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;width%3E=225&amp;height%3E=65&amp;rim%3E=17&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full' },
+      { id: 'RR-TIRE-265-60-R18', title: 'All-Season Tire 265/60R18', size: '265/60R18', vehicle: 'Ford F-150', link: 'https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;width%3E=265&amp;height%3E=60&amp;rim%3E=18&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full' },
+      { id: 'RR-TIRE-275-65-R18', title: 'All-Season Tire 275/65R18', size: '275/65R18', vehicle: 'Ford F-150', link: 'https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;width%3E=275&amp;height%3E=65&amp;rim%3E=18&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full' },
+      { id: 'RR-TIRE-265-65-R18', title: 'All-Season Tire 265/65R18', size: '265/65R18', vehicle: 'Chevrolet Silverado', link: 'https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;width%3E=265&amp;height%3E=65&amp;rim%3E=18&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full' },
+      { id: 'RR-TIRE-275-60-R20', title: 'All-Season Tire 275/60R20', size: '275/60R20', vehicle: 'RAM 1500', link: 'https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;width%3E=275&amp;height%3E=60&amp;rim%3E=20&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full' },
+      { id: 'RR-TIRE-265-70-R16', title: 'All-Season Tire 265/70R16', size: '265/70R16', vehicle: 'Toyota Tacoma', link: 'https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;width%3E=265&amp;height%3E=70&amp;rim%3E=16&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full' },
+      { id: 'RR-TIRE-265-65-R17', title: 'All-Season Tire 265/65R17', size: '265/65R17', vehicle: 'Toyota Tacoma, Kia Sorento', link: 'https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;width%3E=265&amp;height%3E=65&amp;rim%3E=17&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full' },
+      { id: 'RR-TIRE-235-65-R17', title: 'All-Season Tire 235/65R17', size: '235/65R17', vehicle: 'Kia Sorento', link: 'https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;width%3E=235&amp;height%3E=65&amp;rim%3E=17&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full' },
+      { id: 'RR-TIRE-245-60-R20', title: 'All-Season Tire 245/60R20', size: '245/60R20', vehicle: 'Toyota Highlander', link: 'https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;width%3E=245&amp;height%3E=60&amp;rim%3E=20&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full' }
     ];
 
-    // Llantas reales capturadas de TireConnect en Supabase
     let dynamicTires = [];
     try {
       dynamicTires = await supabaseQuery('/tire_feed?select=*&order=updated_at.desc&limit=500', {
@@ -327,7 +328,6 @@ app.get('/google-products.xml', async (req, res) => {
       console.error('Supabase fetch error:', e);
     }
 
-    // Combinar base + dinámicos (sin duplicados)
     const baseIds = new Set(baseTires.map(t => t.id));
     const allTires = [...baseTires.map(t => ({
       id: t.id,
@@ -388,3 +388,6 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
+```
+
+Reemplaza en GitHub, espera el deploy y verifica en `https://tireconnect-backend.onrender.com/google-products.xml`.
