@@ -354,7 +354,7 @@ app.get('/google-products.xml', async (req, res) => {
         <g:image_link>${p.image_link}</g:image_link>
         <g:availability>in_stock</g:availability>
         <g:price>${p.price}</g:price>
-        <g:brand><![CDATA[Road Runner Tires]]></g:brand>
+        <link>${p.link.replace(/&(?!amp;)/g, '&amp;')}</link>
         <g:mpn>${p.id}</g:mpn>
         <g:condition>new</g:condition>
         <g:google_product_category><![CDATA[${TIRE_CATEGORY}]]></g:google_product_category>
