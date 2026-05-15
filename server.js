@@ -388,8 +388,3 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
-```
-
-Reemplaza tu `server.js` completo con este y despliega en Render.
-
-Luego hay que añadir **una sola línea** en tu widget de TireConnect para enviar los datos a Supabase. ¿Listo para ese paso?
