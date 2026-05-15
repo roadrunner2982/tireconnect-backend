@@ -1,6 +1,3 @@
-Aquí está el `server.js` completo con los `&amp;` corregidos:
-
-```javascript
 const express = require('express');
 const cors = require('cors');
 
