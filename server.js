@@ -1,3 +1,6 @@
+Perfecto. Ahora aquí está el `server.js` completo con Supabase conectado:
+
+```javascript
 const express = require('express');
 const cors = require('cors');
 
@@ -10,6 +13,28 @@ const SHOP = process.env.SHOPIFY_STORE;
 const CLIENT_ID = process.env.SHOPIFY_API_KEY;
 const CLIENT_SECRET = process.env.SHOPIFY_API_SECRET;
 const ADMIN_API_VERSION = '2025-10';
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+
+async function supabaseQuery(path, options = {}) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Prefer': 'return=minimal',
+      ...(options.headers || {})
+    }
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Supabase error: ${text}`);
+  }
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
 
 async function getShopifyAccessToken() {
   const params = new URLSearchParams();
@@ -220,38 +245,125 @@ app.post('/create-tire-variant', async (req, res) => {
   }
 });
 
+// ── Save tire for Google feed ──────────────────────────────────────────────────
+app.post('/save-tire-for-feed', async (req, res) => {
+  try {
+    const tire = req.body || {};
+
+    if (!tire.title || !tire.unit_price) {
+      return res.status(400).json({ error: 'Missing title or price' });
+    }
+
+    const size = String(tire.size || '').trim();
+    const brand = String(tire.brand || 'Tire').trim();
+    const title = String(tire.title || '').trim();
+    const price = parseFloat(tire.unit_price || 0).toFixed(2);
+    const image = String(tire.image || '').trim();
+    const part = String(tire.part || '').trim();
+
+    const tireId = part || `${brand}-${size}-${Date.now()}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+
+    const link = size
+      ? `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&season=all&page=1&order_by=best_match&display=full`
+      : `https://roadrunnertiresfl.com/pages/shop-tires-new`;
+
+    const record = {
+      tire_id: tireId,
+      title: `${brand} ${title} ${size}`.trim(),
+      description: `${size} tire available at Road Runner Tires & Wheels in Kissimmee, Florida.`,
+      link: link,
+      image_link: image || 'https://cdn.shopify.com/s/files/1/0929/1700/6583/files/pirelli_pzero_all_season_plus_3_c202a64117f7f4bcfb8b4936bdba306f.png?v=1778705105',
+      price: `${price} USD`,
+      brand: brand,
+      size: size,
+      updated_at: new Date().toISOString()
+    };
+
+    await supabaseQuery('/tire_feed', {
+      method: 'POST',
+      headers: {
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify(record)
+    });
+
+    return res.json({ ok: true });
+
+  } catch (error) {
+    console.error('save-tire-for-feed error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      details: String(error.message || error)
+    });
+  }
+});
+
 // ── Google Merchant Center feed ────────────────────────────────────────────────
 app.get('/google-products.xml', async (req, res) => {
   try {
-    const products = [
-      {
-        id: 'TC-254018',
-        title: 'Road Runner Tires 245/40R18 Tire',
-        description: '245/40R18 tire available at Road Runner Tires & Wheels in Kissimmee, Florida.',
-        link: 'https://roadrunnertiresfl.com/pages/shop-tires-new',
-        image_link: 'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-1_large.png',
-        availability: 'in_stock',
-        price: '125.00 USD',
-        brand: 'Road Runner Tires',
-        mpn: '254018',
-        condition: 'new',
-        google_product_category: 'Vehicles & Parts > Vehicle Parts & Accessories > Motor Vehicle Parts > Motor Vehicle Tires'
-      }
+    const TIRE_IMAGE = 'https://cdn.shopify.com/s/files/1/0929/1700/6583/files/pirelli_pzero_all_season_plus_3_c202a64117f7f4bcfb8b4936bdba306f.png?v=1778705105';
+    const TIRE_CATEGORY = 'Vehicles & Parts > Vehicle Parts & Accessories > Motor Vehicle Parts > Motor Vehicle Tires';
+
+    // Tallas base siempre presentes
+    const baseTires = [
+      { id: 'RR-TIRE-205-55-R16', title: 'All-Season Tire 205/55R16', size: '205/55R16', vehicle: 'Toyota Corolla', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=205&height%3E=55&rim%3E=16&season=all&page=1&order_by=best_match&display=full` },
+      { id: 'RR-TIRE-215-55-R17', title: 'All-Season Tire 215/55R17', size: '215/55R17', vehicle: 'Toyota Camry', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=215&height%3E=55&rim%3E=17&season=all&page=1&order_by=best_match&display=full` },
+      { id: 'RR-TIRE-225-65-R17', title: 'All-Season Tire 225/65R17', size: '225/65R17', vehicle: 'Toyota RAV4, Honda CR-V', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=225&height%3E=65&rim%3E=17&season=all&page=1&order_by=best_match&display=full` },
+      { id: 'RR-TIRE-265-60-R18', title: 'All-Season Tire 265/60R18', size: '265/60R18', vehicle: 'Ford F-150', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=265&height%3E=60&rim%3E=18&season=all&page=1&order_by=best_match&display=full` },
+      { id: 'RR-TIRE-275-65-R18', title: 'All-Season Tire 275/65R18', size: '275/65R18', vehicle: 'Ford F-150', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=275&height%3E=65&rim%3E=18&season=all&page=1&order_by=best_match&display=full` },
+      { id: 'RR-TIRE-265-65-R18', title: 'All-Season Tire 265/65R18', size: '265/65R18', vehicle: 'Chevrolet Silverado', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=265&height%3E=65&rim%3E=18&season=all&page=1&order_by=best_match&display=full` },
+      { id: 'RR-TIRE-275-60-R20', title: 'All-Season Tire 275/60R20', size: '275/60R20', vehicle: 'RAM 1500', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=275&height%3E=60&rim%3E=20&season=all&page=1&order_by=best_match&display=full` },
+      { id: 'RR-TIRE-265-70-R16', title: 'All-Season Tire 265/70R16', size: '265/70R16', vehicle: 'Toyota Tacoma', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=265&height%3E=70&rim%3E=16&season=all&page=1&order_by=best_match&display=full` },
+      { id: 'RR-TIRE-265-65-R17', title: 'All-Season Tire 265/65R17', size: '265/65R17', vehicle: 'Toyota Tacoma, Kia Sorento', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=265&height%3E=65&rim%3E=17&season=all&page=1&order_by=best_match&display=full` },
+      { id: 'RR-TIRE-235-65-R17', title: 'All-Season Tire 235/65R17', size: '235/65R17', vehicle: 'Kia Sorento', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=235&height%3E=65&rim%3E=17&season=all&page=1&order_by=best_match&display=full` },
+      { id: 'RR-TIRE-245-60-R20', title: 'All-Season Tire 245/60R20', size: '245/60R20', vehicle: 'Toyota Highlander', link: `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&width%3E=245&height%3E=60&rim%3E=20&season=all&page=1&order_by=best_match&display=full` }
     ];
 
-    const itemsXml = products.map(p => `
+    // Llantas reales capturadas de TireConnect en Supabase
+    let dynamicTires = [];
+    try {
+      dynamicTires = await supabaseQuery('/tire_feed?select=*&order=updated_at.desc&limit=500', {
+        method: 'GET',
+        headers: { 'Prefer': 'return=representation' }
+      }) || [];
+    } catch (e) {
+      console.error('Supabase fetch error:', e);
+    }
+
+    // Combinar base + dinámicos (sin duplicados)
+    const baseIds = new Set(baseTires.map(t => t.id));
+    const allTires = [...baseTires.map(t => ({
+      id: t.id,
+      title: `${t.title} - Road Runner Tires Kissimmee FL`,
+      description: `${t.size} tire available at Road Runner Tires & Wheels in Kissimmee, Florida. ${t.vehicle} and similar vehicles.`,
+      link: t.link,
+      image_link: TIRE_IMAGE,
+      price: '72.18 USD'
+    })), ...dynamicTires
+      .filter(t => !baseIds.has(t.tire_id))
+      .map(t => ({
+        id: t.tire_id,
+        title: `${t.title} - Road Runner Tires Kissimmee FL`,
+        description: t.description,
+        link: t.link,
+        image_link: t.image_link || TIRE_IMAGE,
+        price: t.price
+      }))
+    ];
+
+    const itemsXml = allTires.map(p => `
       <item>
         <g:id>${p.id}</g:id>
         <title><![CDATA[${p.title}]]></title>
         <description><![CDATA[${p.description}]]></description>
         <link>${p.link}</link>
         <g:image_link>${p.image_link}</g:image_link>
-        <g:availability>${p.availability}</g:availability>
+        <g:availability>in_stock</g:availability>
         <g:price>${p.price}</g:price>
-        <g:brand><![CDATA[${p.brand}]]></g:brand>
-        <g:mpn>${p.mpn}</g:mpn>
-        <g:condition>${p.condition}</g:condition>
-        <g:google_product_category><![CDATA[${p.google_product_category}]]></g:google_product_category>
+        <g:brand><![CDATA[Road Runner Tires]]></g:brand>
+        <g:mpn>${p.id}</g:mpn>
+        <g:condition>new</g:condition>
+        <g:google_product_category><![CDATA[${TIRE_CATEGORY}]]></g:google_product_category>
       </item>
     `).join('');
 
@@ -279,3 +391,8 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
+```
+
+Reemplaza tu `server.js` completo con este y despliega en Render.
+
+Luego hay que añadir **una sola línea** en tu widget de TireConnect para enviar los datos a Supabase. ¿Listo para ese paso?
