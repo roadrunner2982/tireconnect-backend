@@ -385,6 +385,4 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
-```
 
-Reemplaza en GitHub, espera el deploy y verifica en `https://tireconnect-backend.onrender.com/google-products.xml`.
