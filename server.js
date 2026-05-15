@@ -251,6 +251,18 @@ app.post('/save-tire-for-feed', async (req, res) => {
       return res.status(400).json({ error: 'Missing title or price' });
     }
 
+    // Filtrar títulos inválidos
+    const rawTitle = String(tire.title || '').toUpperCase();
+    if (
+      rawTitle.includes('REVISE SEARCH') ||
+      rawTitle.includes('POWERED BY') ||
+      rawTitle === 'TIRE' ||
+      rawTitle.length < 3
+    ) {
+      return res.status(200).json({ ok: true, skipped: true });
+    }rn res.status(400).json({ error: 'Missing title or price' });
+    }
+
     const size = String(tire.size || '').trim();
     const brand = String(tire.brand || 'Tire').trim();
     const title = String(tire.title || '').trim();
