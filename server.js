@@ -1,6 +1,3 @@
-Perfecto. Ahora aquí está el `server.js` completo con Supabase conectado:
-
-```javascript
 const express = require('express');
 const cors = require('cors');
 
