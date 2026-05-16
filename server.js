@@ -14,6 +14,9 @@ const ADMIN_API_VERSION = '2025-10';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
+// ── Variant ID fijo — nunca cambia ─────────────────────────────────────────
+const DYNAMIC_TIRE_VARIANT_ID = 50783317524727;
+
 async function supabaseQuery(path, options = {}) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     ...options,
@@ -96,20 +99,6 @@ async function shopifyRest(path, options = {}) {
   return data;
 }
 
-async function hideProductFromStorefront(productId) {
-  await shopifyRest(`/products/${productId}/metafields.json`, {
-    method: 'POST',
-    body: JSON.stringify({
-      metafield: {
-        namespace: 'seo',
-        key: 'hidden',
-        type: 'number_integer',
-        value: '1'
-      }
-    })
-  });
-}
-
 // ── Health & root ──────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.status(200).send('OK - backend is running');
@@ -119,7 +108,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// ── Shopify: create tire variant ───────────────────────────────────────────────
+// ── Shopify: create tire variant (nuevo sistema - line item properties) ────────
 app.post('/create-tire-variant', async (req, res) => {
   try {
     const { title, part, size, qty, price, brand, image } = req.body || {};
@@ -128,111 +117,25 @@ app.post('/create-tire-variant', async (req, res) => {
       return res.status(400).json({ error: 'Missing title or price' });
     }
 
-    const cleanTitle = String(title || '').trim();
-    const cleanPart = String(part || `TC-${Date.now()}`).trim();
-    const cleanSize = String(size || '').trim();
-    const cleanBrand = String(brand || 'Tire').trim();
-    const cleanPrice = String(price || '').replace(/[^0-9.]/g, '');
-    const cleanQty = parseInt(qty, 10) || 1;
-    const cleanImage = String(image || '').trim();
-
-    if (!cleanPrice) {
-      return res.status(400).json({ error: 'Invalid price' });
-    }
-
-    const productTitle = `${cleanBrand} ${cleanTitle}`.trim();
-    const baseKey = cleanPart || `${cleanBrand}-${cleanTitle}`;
-    const productHandle = safeHandle(`tc-${baseKey}`);
-
-    const found = await shopifyRest(`/products.json?handle=${productHandle}`);
-    const existingProduct = found?.products?.[0];
-
-    if (existingProduct && existingProduct.variants?.length > 0) {
-      const variant = existingProduct.variants[0];
-
-      if (cleanImage && (!existingProduct.images || existingProduct.images.length === 0)) {
-        await shopifyRest(`/products/${existingProduct.id}.json`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            product: {
-              id: existingProduct.id,
-              images: [{ src: cleanImage }]
-            }
-          })
-        });
-      }
-
-      return res.json({
-        ok: true,
-        variant_id: variant.id,
-        product_id: existingProduct.id,
-        reused: true,
-        meta: {
-          title: cleanTitle,
-          part: cleanPart,
-          size: cleanSize,
-          qty: cleanQty,
-          price: cleanPrice,
-          brand: cleanBrand,
-          image: cleanImage
-        }
-      });
-    }
-
-    const created = await shopifyRest('/products.json', {
-      method: 'POST',
-      body: JSON.stringify({
-        product: {
-          title: productTitle,
-          handle: productHandle,
-          vendor: cleanBrand,
-          product_type: 'TireConnect Dynamic',
-          status: 'active',
-          tags: 'hidden,tireconnect,dynamic-tire,tc-hidden,do-not-display',
-          images: cleanImage ? [{ src: cleanImage }] : [],
-          variants: [
-            {
-              option1: 'Default Title',
-              price: cleanPrice,
-              sku: cleanPart,
-              inventory_policy: 'continue',
-              requires_shipping: false,
-              taxable: true
-            }
-          ]
-        }
-      })
-    });
-
-    const product = created?.product;
-    const variant = product?.variants?.[0];
-
-    if (product?.id) {
-      await hideProductFromStorefront(product.id);
-    }
-
-    if (!variant?.id) {
-      return res.status(500).json({
-        error: 'Variant not created',
-        details: created
-      });
-    }
+    // Ya no creamos variants dinámicos — devolvemos el variant fijo
+    console.log(`Tire request: ${brand} ${title} ${size} $${price} — using fixed variant`);
 
     return res.json({
       ok: true,
-      variant_id: variant.id,
-      product_id: product.id,
-      reused: false,
+      variant_id: DYNAMIC_TIRE_VARIANT_ID,
+      product_id: 9977013076215,
+      reused: true,
       meta: {
-        title: cleanTitle,
-        part: cleanPart,
-        size: cleanSize,
-        qty: cleanQty,
-        price: cleanPrice,
-        brand: cleanBrand,
-        image: cleanImage
+        title: String(title || '').trim(),
+        part: String(part || '').trim(),
+        size: String(size || '').trim(),
+        qty: parseInt(qty, 10) || 1,
+        price: String(price || '').replace(/[^0-9.]/g, ''),
+        brand: String(brand || 'Tire').trim(),
+        image: String(image || '').trim()
       }
     });
+
   } catch (error) {
     console.error('create-tire-variant error:', error);
     return res.status(500).json({
@@ -251,7 +154,6 @@ app.post('/save-tire-for-feed', async (req, res) => {
       return res.status(400).json({ error: 'Missing title or price' });
     }
 
-    // Filtrar títulos inválidos
     const rawTitle = String(tire.title || '').toUpperCase();
     if (
       rawTitle.includes('REVISE SEARCH') ||
@@ -260,39 +162,34 @@ app.post('/save-tire-for-feed', async (req, res) => {
       rawTitle.length < 3
     ) {
       return res.status(200).json({ ok: true, skipped: true });
-    }rn res.status(400).json({ error: 'Missing title or price' });
     }
 
-    const size = String(tire.size || '').trim();
+    const size  = String(tire.size || '').trim();
     const brand = String(tire.brand || 'Tire').trim();
     const title = String(tire.title || '').trim();
     const price = parseFloat(tire.unit_price || 0).toFixed(2);
     const image = String(tire.image || '').trim();
-    const part = String(tire.part || '').trim();
+    const part  = String(tire.part || '').trim();
 
     const tireId = part || `${brand}-${size}-${Date.now()}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 
-    const link = size
-      ? `https://roadrunnertiresfl.com/#!tires/results?bp=tire&amp;location_id=62761&amp;search_by=size&amp;type=passenger&amp;season=all&amp;page=1&amp;order_by=best_match&amp;display=full`
-      : `https://roadrunnertiresfl.com/pages/shop-tires-new`;
+    const link = `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&season=all&page=1&order_by=best_match&display=full`;
 
     const record = {
-      tire_id: tireId,
-      title: `${brand} ${title} ${size}`.trim(),
-      description: `${size} tire available at Road Runner Tires & Wheels in Kissimmee, Florida.`,
-      link: link,
+      tire_id:    tireId,
+      title:      `${brand} ${title} ${size}`.trim(),
+      description:`${size} tire available at Road Runner Tires & Wheels in Kissimmee, Florida.`,
+      link:       link,
       image_link: image || 'https://cdn.shopify.com/s/files/1/0929/1700/6583/files/pirelli_pzero_all_season_plus_3_c202a64117f7f4bcfb8b4936bdba306f.png?v=1778705105',
-      price: `${price} USD`,
-      brand: brand,
-      size: size,
+      price:      `${price} USD`,
+      brand:      brand,
+      size:       size,
       updated_at: new Date().toISOString()
     };
 
     await supabaseQuery('/tire_feed', {
       method: 'POST',
-      headers: {
-        'Prefer': 'resolution=merge-duplicates,return=minimal'
-      },
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify(record)
     });
 
@@ -366,6 +263,7 @@ app.get('/google-products.xml', async (req, res) => {
         <g:image_link>${p.image_link}</g:image_link>
         <g:availability>in_stock</g:availability>
         <g:price>${p.price}</g:price>
+        <g:brand><![CDATA[Road Runner Tires]]></g:brand>
         <g:mpn>${p.id}</g:mpn>
         <g:condition>new</g:condition>
         <g:google_product_category><![CDATA[${TIRE_CATEGORY}]]></g:google_product_category>
@@ -396,4 +294,3 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
-
