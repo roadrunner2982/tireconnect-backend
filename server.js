@@ -14,8 +14,8 @@ const ADMIN_API_VERSION = '2025-10';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
-// ── Variant ID fijo — nunca cambia ─────────────────────────────────────────
 const DYNAMIC_TIRE_VARIANT_ID = 50783317524727;
+const DYNAMIC_TIRE_PRODUCT_ID = 9977013076215;
 
 async function supabaseQuery(path, options = {}) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
@@ -52,26 +52,14 @@ async function getShopifyAccessToken() {
   });
 
   const data = await response.json();
-
   if (!response.ok || !data.access_token) {
-    console.error('Token error:', data);
     throw new Error('No se pudo obtener access token de Shopify');
   }
-
   return data.access_token;
-}
-
-function safeHandle(input) {
-  return String(input || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
 }
 
 async function shopifyRest(path, options = {}) {
   const accessToken = await getShopifyAccessToken();
-
   const response = await fetch(`https://${SHOP}/admin/api/${ADMIN_API_VERSION}${path}`, {
     ...options,
     headers: {
@@ -84,7 +72,6 @@ async function shopifyRest(path, options = {}) {
 
   const text = await response.text();
   let data = null;
-
   try {
     data = text ? JSON.parse(text) : {};
   } catch (e) {
@@ -95,7 +82,6 @@ async function shopifyRest(path, options = {}) {
     console.error('Shopify REST error:', response.status, data);
     throw new Error(`Shopify REST error ${response.status}`);
   }
-
   return data;
 }
 
@@ -108,7 +94,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// ── Shopify: create tire variant (nuevo sistema - line item properties) ────────
+// ── Update tire price + return variant ID ──────────────────────────────────────
 app.post('/create-tire-variant', async (req, res) => {
   try {
     const { title, part, size, qty, price, brand, image } = req.body || {};
@@ -117,20 +103,35 @@ app.post('/create-tire-variant', async (req, res) => {
       return res.status(400).json({ error: 'Missing title or price' });
     }
 
-    // Ya no creamos variants dinámicos — devolvemos el variant fijo
-    console.log(`Tire request: ${brand} ${title} ${size} $${price} — using fixed variant`);
+    const cleanPrice = String(price || '').replace(/[^0-9.]/g, '');
+    if (!cleanPrice) {
+      return res.status(400).json({ error: 'Invalid price' });
+    }
+
+    // Actualizar precio del variant dinámico al precio real
+    await shopifyRest(`/variants/${DYNAMIC_TIRE_VARIANT_ID}.json`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        variant: {
+          id: DYNAMIC_TIRE_VARIANT_ID,
+          price: cleanPrice
+        }
+      })
+    });
+
+    console.log(`Tire price updated: ${brand} ${title} ${size} $${cleanPrice}`);
 
     return res.json({
       ok: true,
       variant_id: DYNAMIC_TIRE_VARIANT_ID,
-      product_id: 9977013076215,
+      product_id: DYNAMIC_TIRE_PRODUCT_ID,
       reused: true,
       meta: {
         title: String(title || '').trim(),
         part: String(part || '').trim(),
         size: String(size || '').trim(),
         qty: parseInt(qty, 10) || 1,
-        price: String(price || '').replace(/[^0-9.]/g, ''),
+        price: cleanPrice,
         brand: String(brand || 'Tire').trim(),
         image: String(image || '').trim()
       }
@@ -172,19 +173,18 @@ app.post('/save-tire-for-feed', async (req, res) => {
     const part  = String(tire.part || '').trim();
 
     const tireId = part || `${brand}-${size}-${Date.now()}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-
     const link = `https://roadrunnertiresfl.com/#!tires/results?bp=tire&location_id=62761&search_by=size&type=passenger&season=all&page=1&order_by=best_match&display=full`;
 
     const record = {
-      tire_id:    tireId,
-      title:      `${brand} ${title} ${size}`.trim(),
-      description:`${size} tire available at Road Runner Tires & Wheels in Kissimmee, Florida.`,
-      link:       link,
-      image_link: image || 'https://cdn.shopify.com/s/files/1/0929/1700/6583/files/pirelli_pzero_all_season_plus_3_c202a64117f7f4bcfb8b4936bdba306f.png?v=1778705105',
-      price:      `${price} USD`,
-      brand:      brand,
-      size:       size,
-      updated_at: new Date().toISOString()
+      tire_id:     tireId,
+      title:       `${brand} ${title} ${size}`.trim(),
+      description: `${size} tire available at Road Runner Tires & Wheels in Kissimmee, Florida.`,
+      link:        link,
+      image_link:  image || 'https://cdn.shopify.com/s/files/1/0929/1700/6583/files/pirelli_pzero_all_season_plus_3_c202a64117f7f4bcfb8b4936bdba306f.png?v=1778705105',
+      price:       `${price} USD`,
+      brand:       brand,
+      size:        size,
+      updated_at:  new Date().toISOString()
     };
 
     await supabaseQuery('/tire_feed', {
