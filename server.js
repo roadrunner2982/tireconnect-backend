@@ -88,41 +88,32 @@ async function shopifyRest(path, options = {}) {
 // ── Health & root ──────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.status(200).send('OK - backend is running');
+}
 });
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
-const express = require('express');
-const cors = require('cors');
+// ── Snap Finance Webhook ──────────────────────────────────────────────────────
+app.post('/snap/webhook', async (req, res) => {
+  try {
+    console.log('Snap webhook received:', req.body);
 
-const app = express();
+    return res.status(200).json({
+      ok: true,
+      received: true
+    });
 
-app.use(cors());
-app.use(express.json());
+  } catch (error) {
+    console.error('snap webhook error:', error);
 
-const SHOP = process.env.SHOPIFY_STORE;
-const CLIENT_ID = process.env.SHOPIFY_API_KEY;
-const CLIENT_SECRET = process.env.SHOPIFY_API_SECRET;
-const ADMIN_API_VERSION = '2025-10';
+    return res.status(500).json({
+      error: 'Snap webhook error',
+      details: String(error.message || error)
+    });
+  }
+});
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
-
-const DYNAMIC_TIRE_VARIANT_ID = 50783317524727;
-const DYNAMIC_TIRE_PRODUCT_ID = 9977013076215;
-
-async function supabaseQuery(path, options = {}) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Prefer': 'return=minimal',
-      ...(options.headers || {})
-    }
-  });
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`Supabase error: ${text}`);
