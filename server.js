@@ -170,7 +170,9 @@ app.post('/create-tire-variant', async (req, res) => {
     if (!cleanPrice) {
       return res.status(400).json({ error: 'Invalid price' });
     }
-
+const selectedVariantId = TEST_MODE
+  ? pickTireVariantBySize(size)
+  : DYNAMIC_TIRE_VARIANT_ID;
     await shopifyRest(`/variants/${DYNAMIC_TIRE_VARIANT_ID}.json`, {
       method: 'PUT',
       body: JSON.stringify({
