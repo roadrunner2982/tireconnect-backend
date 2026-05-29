@@ -75,6 +75,15 @@ function pickTireVariantBySize(size, slot = 'A') {
 
   return variants[60];
 }
+async function supabaseQuery(path, options = {}) {
+  const response = await fetch(`${SUPABASE_URL}${path}`, {
+    ...options,
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
   });
 
   if (!response.ok) {
