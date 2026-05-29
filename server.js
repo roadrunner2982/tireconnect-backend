@@ -20,48 +20,61 @@ const DYNAMIC_TIRE_PRODUCT_ID = 9977013076215;
 const TEST_MODE = true;
 
 const TEST_TIRE_VARIANTS = {
-  25: 50816801439991,
-  35: 50816801472759,
-  45: 50816801505527,
-  60: 50816958169335
+  A: {
+    25: 50816801439991,
+    30: 50818773582071,
+    35: 50816801472759,
+    40: 50818774892791,
+    45: 50816801505527,
+    50: 50818775187703,
+    55: 50818775941367,
+    60: 50816958169335
+  },
+  B: {
+    25: 50818757296375,
+    30: 50818773057783,
+    35: 50818763587831,
+    40: 50818775023863,
+    45: 50818765226231,
+    50: 50818775286007,
+    55: 50818776170743,
+    60: 50818766078199
+  }
 };
 
 function estimateTireWeightFromSize(size) {
   const s = String(size || '').toUpperCase();
 
   if (s.includes('35X') || s.includes('35/')) return 60;
-  if (s.includes('33X') || s.includes('33/')) return 60;
+  if (s.includes('33X') || s.includes('33/')) return 55;
 
-  if (s.includes('LT')) return 45;
+  if (s.includes('LT')) return 50;
 
   const rimMatch = s.match(/R(\d{2})/);
   const rim = rimMatch ? parseInt(rimMatch[1], 10) : 0;
 
+  if (rim >= 22) return 55;
   if (rim >= 20) return 45;
   if (rim >= 18) return 35;
+  if (rim >= 17) return 30;
 
   return 25;
 }
 
-function pickTireVariantBySize(size) {
+function pickTireVariantBySize(size, slot = 'A') {
   const estimatedWeight = estimateTireWeightFromSize(size);
+  const variants = TEST_TIRE_VARIANTS[slot] || TEST_TIRE_VARIANTS.A;
 
-  if (estimatedWeight <= 25) return TEST_TIRE_VARIANTS[25];
-  if (estimatedWeight <= 35) return TEST_TIRE_VARIANTS[35];
-  if (estimatedWeight <= 45) return TEST_TIRE_VARIANTS[45];
+  if (estimatedWeight <= 25) return variants[25];
+  if (estimatedWeight <= 30) return variants[30];
+  if (estimatedWeight <= 35) return variants[35];
+  if (estimatedWeight <= 40) return variants[40];
+  if (estimatedWeight <= 45) return variants[45];
+  if (estimatedWeight <= 50) return variants[50];
+  if (estimatedWeight <= 55) return variants[55];
 
-  return TEST_TIRE_VARIANTS[60];
+  return variants[60];
 }
-async function supabaseQuery(path, options = {}) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Prefer': 'return=minimal',
-      ...(options.headers || {})
-    }
   });
 
   if (!response.ok) {
@@ -159,7 +172,7 @@ app.post('/snap/webhook', async (req, res) => {
 // ── Update tire price + return variant ID ──────────────────────────────────────
 app.post('/create-tire-variant', async (req, res) => {
   try {
-    const { title, part, size, qty, price, brand, image } = req.body || {};
+    const { title, part, size, qty, price, brand, image, position } = req.body || {};
 
     if (!title || !price) {
       return res.status(400).json({ error: 'Missing title or price' });
