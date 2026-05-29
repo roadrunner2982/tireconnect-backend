@@ -17,6 +17,41 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const DYNAMIC_TIRE_VARIANT_ID = 50783317524727;
 const DYNAMIC_TIRE_PRODUCT_ID = 9977013076215;
 
+const TEST_MODE = true;
+
+const TEST_TIRE_VARIANTS = {
+  25: 50816801439991,
+  35: 50816801472759,
+  45: 50816801505527,
+  60: 50816958169335
+};
+
+function estimateTireWeightFromSize(size) {
+  const s = String(size || '').toUpperCase();
+
+  if (s.includes('35X') || s.includes('35/')) return 60;
+  if (s.includes('33X') || s.includes('33/')) return 60;
+
+  if (s.includes('LT')) return 45;
+
+  const rimMatch = s.match(/R(\d{2})/);
+  const rim = rimMatch ? parseInt(rimMatch[1], 10) : 0;
+
+  if (rim >= 20) return 45;
+  if (rim >= 18) return 35;
+
+  return 25;
+}
+
+function pickTireVariantBySize(size) {
+  const estimatedWeight = estimateTireWeightFromSize(size);
+
+  if (estimatedWeight <= 25) return TEST_TIRE_VARIANTS[25];
+  if (estimatedWeight <= 35) return TEST_TIRE_VARIANTS[35];
+  if (estimatedWeight <= 45) return TEST_TIRE_VARIANTS[45];
+
+  return TEST_TIRE_VARIANTS[60];
+}
 async function supabaseQuery(path, options = {}) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     ...options,
