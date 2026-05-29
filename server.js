@@ -17,21 +17,6 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const DYNAMIC_TIRE_VARIANT_ID = 50783317524727;
 const DYNAMIC_TIRE_PRODUCT_ID = 9977013076215;
 
-const TEST_MODE = true;
-
-const TEST_TIRE_VARIANTS = {
-  25: 50816801439991,
-  35: 50816801472759,
-  45: 50816801505527
-};
-function pickTireVariantByWeight(weight) {
-  const w = parseFloat(weight || 25);
-
-  if (w <= 25) return TEST_TIRE_VARIANTS[25];
-  if (w <= 35) return TEST_TIRE_VARIANTS[35];
-
-  return TEST_TIRE_VARIANTS[45];
-}
 async function supabaseQuery(path, options = {}) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     ...options,
