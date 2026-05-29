@@ -173,11 +173,11 @@ app.post('/create-tire-variant', async (req, res) => {
 const selectedVariantId = TEST_MODE
   ? pickTireVariantBySize(size)
   : DYNAMIC_TIRE_VARIANT_ID;
-    await shopifyRest(`/variants/${DYNAMIC_TIRE_VARIANT_ID}.json`, {
+    await shopifyRest(`/variants/${selectedVariantId}.json`, {
       method: 'PUT',
       body: JSON.stringify({
         variant: {
-          id: DYNAMIC_TIRE_VARIANT_ID,
+          id: selectedVariantId,
           price: cleanPrice
         }
       })
@@ -187,7 +187,7 @@ const selectedVariantId = TEST_MODE
 
     return res.json({
       ok: true,
-      variant_id: DYNAMIC_TIRE_VARIANT_ID,
+      variant_id: selectedVariantId,
       product_id: DYNAMIC_TIRE_PRODUCT_ID,
       reused: true,
       meta: {
