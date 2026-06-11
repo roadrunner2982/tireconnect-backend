@@ -278,10 +278,12 @@ app.post('/save-tire-for-feed', async (req, res) => {
     };
 
     await supabaseQuery('/tire_feed', {
-      method: 'POST',
-      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation'
-      body: JSON.stringify(record)
-    });
+  method: 'POST',
+  headers: {
+    'Prefer': 'resolution=merge-duplicates,return=representation'
+  },
+  body: JSON.stringify(record)
+});
 
     return res.json({ ok: true });
 
